@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zabbix_export>
+    <version>5.0</version>
+    <date>2021-01-26T19:56:46Z</date>
+    <groups>
+        <group>
+            <name>Templates</name>
+        </group>
+    </groups>
+    <templates>
+        <template>
+            <template>Template SSL Check</template>
+            <name>Template SSL Check</name>
+            <description>Check validate ssl and issuer.</description>
+            <groups>
+                <group>
+                    <name>Templates</name>
+                </group>
+            </groups>
+            <applications>
+                <application>
+                    <name>SSL certificate</name>
+                </application>
+            </applications>
+            <items>
+                <item>
+                    <name>SSL certificate issuer</name>
+                    <type>EXTERNAL</type>
+                    <key>get.ssl.py[issuer,{HOST.HOST},{$SSL_PORT}]</key>
+                    <delay>1d</delay>
+                    <history>365d</history>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                    <applications>
+                        <application>
+                            <name>SSL certificate</name>
+                        </application>
+                    </applications>
+                    <preprocessing>
+                        <step>
+                            <type>LTRIM</type>
+                            <params>issuer= </params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>SSL certificate validity</name>
+                    <type>EXTERNAL</type>
+                    <key>get.ssl.py[validate,{HOST.HOST},{$SSL_PORT}]</key>
+                    <history>30d</history>
+                    <value_type>FLOAT</value_type>
+                    <units>d</units>
+                    <applications>
+                        <application>
+                            <name>SSL certificate</name>
+                        </application>
+                    </applications>
+                    <triggers>
+                        <trigger>
+                            <expression>{last()}&lt;{$SSL_EXPIRY_AVG}</expression>
+                            <name>SSL certificate expires in less than {$SSL_EXPIRY_AVG} days</name>
+                            <url>{$ZBX_URL}/hostinventories.php?hostid={HOST.ID1}</url>
+                            <priority>AVERAGE</priority>
+                            <description>{ITEM.VALUE} days remaining</description>
+                            <dependencies>
+                                <dependency>
+                                    <name>HTTPS Service is Down</name>
+                                    <expression>{Template SSL Check:net.tcp.service[https,{HOST.HOST},{$SSL_PORT}].max(5m)}&lt;1 or {Template SSL Check:net.tcp.service[https,{HOST.HOST},{$SSL_PORT}].nodata(5m)}=1</expression>
+                                </dependency>
+                                <dependency>
+                                    <name>SSL certificate expires in less than {$SSL_EXPIRY_HIGH} days</name>
+                                    <expression>{Template SSL Check:get.ssl.py[validate,{HOST.HOST},{$SSL_PORT}].last()}&lt;{$SSL_EXPIRY_HIGH}</expression>
+                                </dependency>
+                            </dependencies>
+                            <tags>
+                                <tag>
+                                    <tag>SSL</tag>
+                                </tag>
+                            </tags>
+                        </trigger>
+                        <trigger>
+                            <expression>{last()}&lt;{$SSL_EXPIRY_HIGH}</expression>
+                            <name>SSL certificate expires in less than {$SSL_EXPIRY_HIGH} days</name>
+                            <url>{$ZBX_URL}/hostinventories.php?hostid={HOST.ID1}</url>
+                            <priority>HIGH</priority>
+                            <description>{ITEM.VALUE} days remaining</description>
+                            <manual_close>YES</manual_close>
+                            <dependencies>
+                                <dependency>
+                                    <name>HTTPS Service is Down</name>
+                                    <expression>{Template SSL Check:net.tcp.service[https,{HOST.HOST},{$SSL_PORT}].max(5m)}&lt;1 or {Template SSL Check:net.tcp.service[https,{HOST.HOST},{$SSL_PORT}].nodata(5m)}=1</expression>
+                                </dependency>
+                                <dependency>
+                                    <name>SSL certificate on {HOSTNAME} expired</name>
+                                    <expression>{Template SSL Check:get.ssl.py[validate,{HOST.HOST},{$SSL_PORT}].last()}&lt;0 or {Template SSL Check:get.ssl.py[validate,{HOST.HOST},{$SSL_PORT}].nodata(5m)}=1</expression>
+                                </dependency>
+                            </dependencies>
+                            <tags>
+                                <tag>
+                                    <tag>SSL</tag>
+                                </tag>
+                            </tags>
+                        </trigger>
+                        <trigger>
+                            <expression>{last()}&lt;0 or {nodata(5m)}=1</expression>
+                            <name>SSL certificate on {HOSTNAME} expired</name>
+                            <url>{$ZBX_URL}/hostinventories.php?hostid={HOST.ID1}</url>
+                            <priority>DISASTER</priority>
+                            <description>Certificate has expired, please renew as soon as possible.</description>
+                            <manual_close>YES</manual_close>
+                            <dependencies>
+                                <dependency>
+                                    <name>HTTPS Service is Down</name>
+                                    <expression>{Template SSL Check:net.tcp.service[https,{HOST.HOST},{$SSL_PORT}].max(5m)}&lt;1 or {Template SSL Check:net.tcp.service[https,{HOST.HOST},{$SSL_PORT}].nodata(5m)}=1</expression>
+                                </dependency>
+                            </dependencies>
+                            <tags>
+                                <tag>
+                                    <tag>SSL</tag>
+                                </tag>
+                            </tags>
+                        </trigger>
+                    </triggers>
+                </item>
+                <item>
+                    <name>HTTPS Service is running</name>
+                    <type>SIMPLE</type>
+                    <key>net.tcp.service[https,{HOST.HOST},{$SSL_PORT}]</key>
+                    <history>30d</history>
+                    <applications>
+                        <application>
+                            <name>SSL certificate</name>
+                        </application>
+                    </applications>
+                    <valuemap>
+                        <name>Service state</name>
+                    </valuemap>
+                    <triggers>
+                        <trigger>
+                            <expression>{max(5m)}&lt;1 or {nodata(5m)}=1</expression>
+                            <name>HTTPS Service is Down</name>
+                            <url>{$ZBX_URL}/hostinventories.php?hostid={HOST.ID1}</url>
+                            <priority>DISASTER</priority>
+                            <manual_close>YES</manual_close>
+                            <tags>
+                                <tag>
+                                    <tag>SSL</tag>
+                                </tag>
+                            </tags>
+                        </trigger>
+                    </triggers>
+                </item>
+            </items>
+            <macros>
+                <macro>
+                    <macro>{$SNI}</macro>
+                    <value>{HOSTNAME}</value>
+                </macro>
+                <macro>
+                    <macro>{$SSL_EXPIRY_AVG}</macro>
+                    <value>15</value>
+                </macro>
+                <macro>
+                    <macro>{$SSL_EXPIRY_HIGH}</macro>
+                    <value>7</value>
+                </macro>
+                <macro>
+                    <macro>{$SSL_HOST}</macro>
+                    <value>{HOSTNAME}</value>
+                </macro>
+                <macro>
+                    <macro>{$SSL_PORT}</macro>
+                    <value>443</value>
+                </macro>
+            </macros>
+        </template>
+    </templates>
+    <graphs>
+        <graph>
+            <name>SSL Certificate valid days</name>
+            <graph_items>
+                <graph_item>
+                    <drawtype>BOLD_LINE</drawtype>
+                    <color>3949AB</color>
+                    <item>
+                        <host>Template SSL Check</host>
+                        <key>get.ssl.py[validate,{HOST.HOST},{$SSL_PORT}]</key>
+                    </item>
+                </graph_item>
+            </graph_items>
+        </graph>
+    </graphs>
+    <value_maps>
+        <value_map>
+            <name>Service state</name>
+            <mappings>
+                <mapping>
+                    <value>0</value>
+                    <newvalue>Down</newvalue>
+                </mapping>
+                <mapping>
+                    <value>1</value>
+                    <newvalue>Up</newvalue>
+                </mapping>
+            </mappings>
+        </value_map>
+    </value_maps>
+</zabbix_export>
